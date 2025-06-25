@@ -4,36 +4,122 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OS Transform</title>
+    <style>
+        span { display: inline-block; margin: 0 4px; }
+        code { background-color: #f5f5f5; padding: 2px 4px; }
+        pre.msg { background-color: #f5f5f5; padding: 8px; }
+    </style>
 </head>
 <body>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.0/proj4.js"></script>
+<h2>OS Transform</h2>
+<div id="ostn15-cgi">
+    <button>Run</button>
+    <span>OSTN15 Transformation via Common Gateway Interface (CGI) request to GIQTrans</span>
+    <pre></pre>
+</div>
+<div id="ostn15-gsb">
+    <button>Run</button>
+    <span>OSTN15 Transformation using Grid Based Datum Adjustments (NTv2 <code>.gsb</code> file)</span>
+    <pre></pre>
+</div>
+<div id="ostn15-tif">
+    <button>Run</button>
+    <span>OSTN15 Transformation using Grid Based Datum Adjustments (GeoTIFF <code>.tif</code> file)</span>
+    <pre></pre>
+</div>
+<div id="simple-towgs84">
+    <button>Run</button>
+    <span>Simple seven-parameter geodetic transformation</span>
+    <pre></pre>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.19.0/proj4.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff"></script>
 <script src="os-transform.js"></script>
 <script>
 
-    var request = new XMLHttpRequest();
-    request.onload = function() {
-        var arrayBuffer = request.response;
+    const p1 = { ea: 337297, no: 503695 };
+    const p2 = { lat: 54.4248099897757, lng: -2.96793742316253 };
+    const gr = 'NY 37297 03695';
 
-        proj4.nadgrid('OSTN15_NTv2_OSGBtoETRS', arrayBuffer);
-        proj4.defs('EPSG:27700', '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs +nadgrids=OSTN15_NTv2_OSGBtoETRS');
+    function returnMessage(str) {
+        const pre = document.querySelector(`#${os.Transform.options.type} pre`);
+        pre.innerText = str;
+        pre.className = 'msg';
+    }
 
-        var p1 = { ea: 337297, no: 503695 };
-        var p2 = { lat: 54.42480998276385, lng: -2.96793742245737 };
+    function makeRequests() {
+        let msg = '';
+        msg += `> os.Transform.toLatLng(${JSON.stringify(p1)})\n`;
+        msg += `  ${JSON.stringify(os.Transform.toLatLng(p1))}\n\n`;
+        msg += `> os.Transform.toLatLng(${JSON.stringify(p1)}, 14)\n`;
+        msg += `  ${JSON.stringify(os.Transform.toLatLng(p1, 14))}\n\n`;
+        msg += `> os.Transform.fromLatLng(${JSON.stringify(p2)})\n`;
+        msg += `  ${JSON.stringify(os.Transform.fromLatLng(p2))}\n\n`;
+        msg += `> os.Transform.toGridRef(${JSON.stringify(p1)})\n`;
+        msg += `  ${JSON.stringify(os.Transform.toGridRef(p1))}\n\n`;
+        msg += `> os.Transform.toGridRef(os.Transform.fromLatLng(${JSON.stringify(p2)}))\n`;
+        msg += `  ${JSON.stringify(os.Transform.toGridRef(os.Transform.fromLatLng(p2)))}\n\n`;
+        msg += `> os.Transform.fromGridRef("${gr}")\n`;
+        msg += `  ${JSON.stringify(os.Transform.fromGridRef(gr))}\n`;
+        returnMessage(msg);
+    }
 
-        console.log(os.Transform.toLatLng(p1));
-        console.log(os.Transform.toLatLng(p1, 14));
+    async function asyncMakeRequests() {
+        let msg = '';
+        msg += `> os.Transform.toLatLng(${JSON.stringify(p1)})\n`;
+        msg += `  ${JSON.stringify(await os.Transform.toLatLng(p1))}\n\n`;
+        msg += `> os.Transform.toLatLng(${JSON.stringify(p1)}, 14)\n`;
+        msg += `  ${JSON.stringify(await os.Transform.toLatLng(p1, 14))}\n\n`;
+        msg += `> os.Transform.fromLatLng(${JSON.stringify(p2)})\n`;
+        msg += `  ${JSON.stringify(await os.Transform.fromLatLng(p2))}\n\n`;
+        msg += `> os.Transform.toGridRef(${JSON.stringify(p1)})\n`;
+        msg += `  ${JSON.stringify(os.Transform.toGridRef(p1))}\n\n`;
+        msg += `> os.Transform.toGridRef(os.Transform.fromLatLng(${JSON.stringify(p2)}))\n`;
+        msg += `  ${JSON.stringify(os.Transform.toGridRef(await os.Transform.fromLatLng(p2)))}\n\n`;
+        msg += `> os.Transform.fromGridRef("${gr}")\n`;
+        msg += `  ${JSON.stringify(os.Transform.fromGridRef(gr))}\n`;
+        returnMessage(msg);
+    }
 
-        console.log(os.Transform.fromLatLng(p2));
+    async function fetchAndProcessData() {
+        if( os.Transform.options.type == 'ostn15-gsb' ) {
+            const response = await fetch(os.Transform.options.gsbPath);
+            const arrayBuffer = await response.arrayBuffer();
+            proj4.nadgrid(os.Transform.options.proj4.nadgrid, arrayBuffer);
+        }
+        else if( os.Transform.options.type == 'ostn15-tif' ) {
+            // const tiff = await GeoTIFF.fromUrl(os.Transform.options.tifPath);
+            const response = await fetch(os.Transform.options.tifPath);
+            const arrayBuffer = await response.arrayBuffer();
+            const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
+            await proj4.nadgrid(os.Transform.options.proj4.nadgrid, tiff).ready;
+        }
+        proj4.defs('EPSG:27700', os.Transform.options.proj4.defs.ostn15);
+        makeRequests();
+    }
 
-        console.log(os.Transform.toGridRef(p1));
-        console.log(os.Transform.toGridRef(os.Transform.fromLatLng(p2)));
+    document.querySelector('#ostn15-cgi button').addEventListener("click", function() {
+        os.Transform.options.type = 'ostn15-cgi'; // -- DEFAULT
+        asyncMakeRequests();
+    });
 
-        console.log(os.Transform.fromGridRef("NY 37297 03695"));
-    };
-    request.open('GET', 'OSTN15_NTv2_OSGBtoETRS.gsb');
-    request.responseType = 'arraybuffer';
-    request.send();
+    document.querySelector('#ostn15-gsb button').addEventListener("click", function() {
+        os.Transform.options.type = 'ostn15-gsb';
+        fetchAndProcessData();
+    });
+
+    document.querySelector('#ostn15-tif button').addEventListener("click", function() {
+        os.Transform.options.type = 'ostn15-tif';
+        fetchAndProcessData();
+    });
+
+    document.querySelector('#simple-towgs84 button').addEventListener("click", function() {
+        os.Transform.options.type = 'simple-towgs84';
+        proj4.defs('EPSG:27700', os.Transform.options.proj4.defs.towgs84);
+        makeRequests();
+    });
 
 </script>
 

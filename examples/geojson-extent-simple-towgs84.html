@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OS Transform</title>
+    <style>
+        span { display: inline-block; margin: 0 4px; }
+        code { background-color: #f5f5f5; padding: 2px 4px; }
+        pre.msg { background-color: #f5f5f5; padding: 8px; white-space: pre-wrap; word-wrap: break-word; }
+        #geojson { display: inline-flex; background-color: #f5f5f5; margin-bottom: 16px; }
+        #geojson pre { width: 600px; height: 300px; overflow: hidden; overflow-y: auto; margin: 0; padding: 8px 0; }
+    </style>
+</head>
+<body>
+
+<h2>OS Transform</h2>
+<div id="geojson">
+    <svg width="400" height="300"></svg>
+    <pre></pre>
+</div>
+<div id="simple-towgs84">
+    <button>Run</button>
+    <span>Simple seven-parameter geodetic transformation</span>
+    <pre></pre>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.19.0/proj4.min.js"></script>
+<script src="../os-transform.js"></script>
+<script>
+
+    os.Transform.options.type = 'simple-towgs84';
+    proj4.defs('EPSG:27700', os.Transform.options.proj4.defs.towgs84);
+
+    const roundUp = function(num, precision = 1000) {
+        return Math.ceil(parseFloat(num) / precision) * precision;
+    };
+
+    const roundDown = function(num, precision = 1000) {
+        return Math.floor(parseFloat(num) / precision) * precision;
+    };
+
+    const arrGridRef = [];
+
+    function rewind(geo) {
+        const fixedGeoJSON = { ...geo };
+        fixedGeoJSON.features = fixedGeoJSON.features.map(f =>
+            turf.rewind(f, { reverse: true })
+        );
+        return fixedGeoJSON;
+    }
+
+    d3.json('boundary.geojson').then(function(geojson) {
+        geojson = rewind(geojson);
+
+        let width = 400, height = 300, margin = 8;
+
+        const projection = d3.geoMercator()
+            .translate([ width / 2, height / 2 ])
+            .fitExtent([ [ margin, margin ], [ width - margin, height - margin ] ], geojson);
+
+        const path = d3.geoPath().projection(projection);
+
+        const svg = d3.select("svg");
+
+        svg.selectAll("path")
+            .data(geojson.features)
+            .enter()
+            .append("path")
+            .attr("d", path)
+            .attr("fill", "steelblue")
+            .attr("stroke", "white");
+
+        document.querySelector('#geojson pre').innerText = `File: boundary.geojson (City of Southampton)\n\n${JSON.stringify(geojson, null, 2)}`;
+
+        document.querySelector('#simple-towgs84 button').addEventListener("click", function() {
+            const sw = os.Transform.fromLatLng({ lat: geojson.bbox[1], lng: geojson.bbox[0] });
+            const ne = os.Transform.fromLatLng({ lat: geojson.bbox[3], lng: geojson.bbox[2] });
+
+            Object.keys(sw).forEach((key) => { sw[key] = roundDown(sw[key]) });
+            Object.keys(ne).forEach((key) => { ne[key] = roundUp(ne[key]) });
+
+            for( let i = sw.ea; i < ne.ea; i += 1000 ) {
+                for( let j = sw.no; j < ne.no; j += 1000 ) {
+                    const osRef = os.Transform.toGridRef({ ea: i, no: j }).text;
+                    const kmRef = osRef.split(' ').map((val, index) => val.slice(0, 2)).join('');
+                    arrGridRef.push(kmRef);
+                }
+            }
+
+            const pre = document.querySelector(`#${os.Transform.options.type} pre`);
+            pre.innerText = `KM Grid References (for BBOX Extent):\n${JSON.stringify(arrGridRef)}`;
+            pre.className = 'msg';
+        });
+    });
+
+</script>
+
+</body>
+</html>

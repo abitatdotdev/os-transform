@@ -1,12 +1,50 @@
-// os-transform.js v0.4.0
+// os-transform.js v0.5.0
 
 window.os = window.os || {};
 
 os.Transform = {
-    // Bounds object (projected and geographic coordinates) for extent of GB.
-    _maxBounds: {
-        projected: [[ 0.0, 0.0 ], [ 699999.9, 1299999.9 ]],
-        geographic: [[ -8.74, 49.84 ], [ 1.96, 60.9 ]]
+    /**
+     * Default configuration options.
+     */
+    options: {
+        // Transformation type:
+        // # ostn15-cgi - [default] OSTN15 Transformation via Common Gateway Interface (CGI) request to GIQTrans.
+        // # ostn15-gsb - OSTN15 Transformation using Grid Based Datum Adjustments (NTv2 `.gsb` file).
+        // # ostn15-tif - OSTN15 Transformation using Grid Based Datum Adjustments (GeoTIFF `.tif` file).
+        // # simple-towgs84 - Simple seven-parameter geodetic transformation.
+        type: 'ostn15-cgi',
+        //
+        gsbPath: 'resources/OSTN15_NTv2_OSGBtoETRS.gsb',
+        tifPath: 'resources/uk_os_OSTN15_NTv2_OSGBtoETRS.tif',
+        //
+        proj4: {
+            nadgrid: 'OSTN15_NTv2_OSGBtoETRS',
+            defs: {
+                towgs84: '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs',
+                ostn15: '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +nadgrids=OSTN15_NTv2_OSGBtoETRS +units=m +no_defs +type=crs'
+            }
+        },
+        //
+        cgiPath: '/cgi-bin/giqtrans',
+        // Bounds object (projected and geographic coordinates) for extent of GB.
+        maxBounds: {
+            projected: [[ 0.0, 0.0 ], [ 699999.9, 1299999.9 ]],
+            geographic: [[ -8.74, 49.84 ], [ 1.96, 60.9 ]]
+        }
+    },
+
+    /**
+     * Test whether Proj4js has been installed in the browser application.
+     */
+    _isProj4: function() {
+        return typeof proj4 !== 'undefined' ? proj4 : 'proj4 is not defined. Please ensure you have installed Proj4js in your browser application (see http://proj4js.org/).';
+    },
+
+    /**
+     * Test whether geotiff.js has been installed in the browser application.
+     */
+    _isGeoTIFF: function() {
+        return typeof GeoTIFF !== 'undefined' ? GeoTIFF : 'GeoTIFF is not defined. Please ensure you have installed geotiff.js in your browser application (see https://geotiffjs.github.io/geotiff.js/).';
     },
 
     /**
@@ -14,21 +52,21 @@ os.Transform = {
      * @param {object} coordinates - The easting + northing or latlng to be validated.
      */
     _checkBounds: function(coordinates) {
-        var isValid = true;
+        const isValid = true;
         if( coordinates.hasOwnProperty('ea') && coordinates.hasOwnProperty('no') ) {
-            if( (coordinates.ea < this._maxBounds.projected[0][0] || coordinates.ea > this._maxBounds.projected[1][0])
-                || (coordinates.no < this._maxBounds.projected[0][1] || coordinates.no > this._maxBounds.projected[1][1]) ) {
+            if( (coordinates.ea < this.options.maxBounds.projected[0][0] || coordinates.ea > this.options.maxBounds.projected[1][0])
+                || (coordinates.no < this.options.maxBounds.projected[0][1] || coordinates.no > this.options.maxBounds.projected[1][1]) ) {
                 isValid = false;
             }
         }
         else if( coordinates.hasOwnProperty('lat') && coordinates.hasOwnProperty('lng') ) {
-            if( (coordinates.lng < this._maxBounds.geographic[0][0] || coordinates.lng > this._maxBounds.geographic[1][0])
-                || (coordinates.lat < this._maxBounds.geographic[0][1] || coordinates.lat > this._maxBounds.geographic[1][1]) ) {
+            if( (coordinates.lng < this.options.maxBounds.geographic[0][0] || coordinates.lng > this.options.maxBounds.geographic[1][0])
+                || (coordinates.lat < this.options.maxBounds.geographic[0][1] || coordinates.lat > this.options.maxBounds.geographic[1][1]) ) {
                 isValid = false;
             }
         }
 
-        var message = isValid ? '' : 'Coordinates out of range.';
+        const message = isValid ? '' : 'Coordinates out of range.';
 
         return { valid: isValid, message: message };
     },
@@ -37,14 +75,34 @@ os.Transform = {
      * Test whether a standard grid reference with a valid format has been provided.
      * param {string} gridref - The grid reference to be validated.
      */
-     _validateGridRef: function(gridref) {
-        var regex = /^[THJONS][VWXYZQRSTULMNOPFGHJKABCDE] ?[0-9]{1,5} ?[0-9]{1,5}$/;
-        var match = Array.isArray(gridref.toUpperCase().match(regex)) ? true : false;
+    _validateGridRef: function(gridref) {
+        const regex = /^[THJONS][VWXYZQRSTULMNOPFGHJKABCDE] ?[0-9]{1,5} ?[0-9]{1,5}$/;
+        const match = Array.isArray(gridref.toUpperCase().match(regex)) ? true : false;
 
-        var isValid = (gridref.replaceAll(" ", "").length % 2 === 0) && match ? true: false;
-        var message = isValid ? '' : 'Invalid grid reference.';
+        const isValid = (gridref.replace(/ /g, '').length % 2 === 0) && match ? true: false;
+        const message = isValid ? '' : 'Invalid grid reference.';
 
         return { valid: isValid, message: message };
+    },
+
+    /**
+    * Return transformed point geometry in GeoJSON format via Common Gateway Interface (CGI)
+    * request to GIQTrans.
+    * @param {integer} source - The source spatial reference identifier (SRID) number.
+    * @param {integer} target - The target spatial reference identifier (SRID) number.
+    * @param {array} coordinates - The input coordinates in XY order.
+    */
+    _makeRequest: async function(source, target, coordinates) {
+        const response = await fetch(this.options.cgiPath, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `SourceSRID=${source}&TargetSRID=${target}&Geometry={"type":"Point","coordinates":[${coordinates}]}`
+        });
+        const data = await response.json();
+
+        return data.coordinates;
     },
 
     /**
@@ -53,18 +111,25 @@ os.Transform = {
      * @param {integer} decimals - [optional] The specified number of decimal places.
      */
     toLatLng: function(coordinates, decimals = 7) {
-        var test = this._checkBounds(coordinates)
+        const test = this._checkBounds(coordinates)
         if(! test.valid ) {
            console.log(test.message);
            return {};
         }
 
-        var point = proj4('EPSG:27700', 'EPSG:4326', [ coordinates.ea, coordinates.no ]);
-
-        var lng = Number(point[0].toFixed(decimals));
-        var lat = Number(point[1].toFixed(decimals));
-
-        return { lat: lat, lng: lng };
+        if( this.options.type === 'ostn15-cgi' ) {
+           return this._makeRequest(27700, 4937, [ coordinates.ea, coordinates.no ]).then(data => ({
+                lat: Number(data[1].toFixed(decimals)),
+                lng: Number(data[0].toFixed(decimals))
+            }));
+        }
+        else {
+            const point = proj4('EPSG:27700', 'EPSG:4326', [ coordinates.ea, coordinates.no ]);
+            return {
+                lat: Number(point[1].toFixed(decimals)),
+                lng: Number(point[0].toFixed(decimals))
+            };
+        }
     },
 
     /**
@@ -73,18 +138,25 @@ os.Transform = {
      * @param {integer} decimals - [optional] The specified number of decimal places.
      */
     fromLatLng: function(coordinates, decimals = 2) {
-        var test = this._checkBounds(coordinates)
+        const test = this._checkBounds(coordinates)
         if(! test.valid ) {
            console.log(test.message);
            return {};
         }
 
-        var point = proj4('EPSG:4326', 'EPSG:27700', [ coordinates.lng, coordinates.lat ]);
-
-        var e = Number(point[0].toFixed(decimals));
-        var n = Number(point[1].toFixed(decimals));
-
-        return { ea: e, no: n };
+        if( this.options.type === 'ostn15-cgi' ) {
+            return this._makeRequest(4937, 27700, [ coordinates.lng, coordinates.lat ]).then(data => ({
+                ea: Number(data[0].toFixed(decimals)),
+                no: Number(data[1].toFixed(decimals))
+            }));
+        }
+        else {
+            const point = proj4('EPSG:4326', 'EPSG:27700', [ coordinates.lng, coordinates.lat ]);
+            return {
+                ea: Number(point[0].toFixed(decimals)),
+                no: Number(point[1].toFixed(decimals))
+            };
+        }
     },
 
     /**
@@ -92,13 +164,13 @@ os.Transform = {
      * @param {object} coordinates - The easting + northing to be converted.
      */
     toGridRef: function(coordinates) {
-        var test = this._checkBounds(coordinates)
+        const test = this._checkBounds(coordinates)
         if(! test.valid ) {
            console.log(test.message);
            return {};
         }
 
-        var prefixes = [
+        const prefixes = [
             [ 'SV', 'SW', 'SX', 'SY', 'SZ', 'TV', 'TW' ],
             [ 'SQ', 'SR', 'SS', 'ST', 'SU', 'TQ', 'TR' ],
             [ 'SL', 'SM', 'SN', 'SO', 'SP', 'TL', 'TM' ],
@@ -114,19 +186,19 @@ os.Transform = {
             [ 'HL', 'HM', 'HN', 'HO', 'HP', 'JL', 'JM' ]
         ];
 
-        var x = Math.floor(coordinates.ea / 100000);
-        var y = Math.floor(coordinates.no / 100000);
+        const x = Math.floor(coordinates.ea / 100000);
+        const y = Math.floor(coordinates.no / 100000);
 
-        var prefix = prefixes[y][x];
+        const prefix = prefixes[y][x];
 
-        var e = Math.floor(coordinates.ea % 100000); // Math.round(coordinates.ea % 100000);
-        var n = Math.floor(coordinates.no % 100000); // Math.round(coordinates.no % 100000);
+        let e = Math.floor(coordinates.ea % 100000);
+        let n = Math.floor(coordinates.no % 100000);
 
         e = String(e).padStart(5, '0');
         n = String(n).padStart(5, '0');
 
-        var text = prefix + ' ' + e + ' ' + n,
-            html = prefix + '&thinsp;' + e + '&thinsp;' + n;
+        const text = `${prefix} ${e} ${n}`;
+        const html = `${prefix}&thinsp;${e}&thinsp;${n}`;
 
         return { text: text, html: html, letters: prefix, eastings: e, northings: n };
     },
@@ -138,27 +210,27 @@ os.Transform = {
     fromGridRef: function(gridref) {
         gridref = String(gridref).trim();
 
-        var test = this._validateGridRef(gridref)
+        const test = this._validateGridRef(gridref)
         if(! test.valid ) {
            console.log(test.message);
            return {};
         }
 
-        var gridLetters = "VWXYZQRSTULMNOPFGHJKABCDE";
+        const gridLetters = 'VWXYZQRSTULMNOPFGHJKABCDE';
 
-        var ref = gridref.toUpperCase().replaceAll(" ", "");
+        const ref = gridref.toUpperCase().replace(/ /g, '');
 
-        var majorEasting = gridLetters.indexOf(ref[0]) % 5  * 500000 - 1000000;
-        var majorNorthing = Math.floor(gridLetters.indexOf(ref[0]) / 5) * 500000 - 500000;
+        const majorEasting = gridLetters.indexOf(ref[0]) % 5  * 500000 - 1000000;
+        const majorNorthing = Math.floor(gridLetters.indexOf(ref[0]) / 5) * 500000 - 500000;
 
-        var minorEasting = gridLetters.indexOf(ref[1]) % 5  * 100000;
-        var minorNorthing = Math.floor(gridLetters.indexOf(ref[1]) / 5) * 100000;
+        const minorEasting = gridLetters.indexOf(ref[1]) % 5  * 100000;
+        const minorNorthing = Math.floor(gridLetters.indexOf(ref[1]) / 5) * 100000;
 
-        var i = (ref.length-2) / 2;
-        var m = Math.pow(10, 5-i);
+        const i = (ref.length-2) / 2;
+        const m = Math.pow(10, 5-i);
 
-        var e = majorEasting + minorEasting + (ref.substr(2, i) * m);
-        var n = majorNorthing + minorNorthing + (ref.substr(i+2, i) * m);
+        const e = majorEasting + minorEasting + (ref.substring(2, i+2) * m);
+        const n = majorNorthing + minorNorthing + (ref.substring(i+2) * m);
 
         return { ea: e, no: n };
     }
