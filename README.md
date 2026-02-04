@@ -2,7 +2,25 @@
 
 A set of JavaScript helper functions for transforming between the OSGB36/British National Grid (EPSG:27700) and WGS84 (EPSG:4326) coordinate systems; as well as providing support for OS Grid Reference conversions.
 
-## Installation
+## 🆕 Bun Server Version
+
+This library now includes a modern **Bun server** implementation with REST API endpoints! See [SERVER.md](SERVER.md) for details.
+
+**Quick start:**
+```bash
+bun run server.js
+# Server runs at http://localhost:3000
+```
+
+**API Example:**
+```bash
+curl "http://localhost:3000/api/to-gridref?ea=337297&no=503695"
+# Returns: {"text":"NY 37297 03695", ...}
+```
+
+---
+
+## Browser Installation (Original)
 
 Include the following `<script>` tag in the header section of your HTML document:
 
