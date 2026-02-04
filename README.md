@@ -4,10 +4,11 @@ A set of JavaScript helper functions for transforming between the OSGB36/British
 
 ## 🆕 Bun Server Version
 
-This library now includes a modern **Bun server** implementation with REST API endpoints! See [SERVER.md](SERVER.md) for details.
+This library now includes a modern **Bun server** implementation with REST API endpoints! See [server/SERVER.md](server/SERVER.md) for details.
 
 **Quick start:**
 ```bash
+cd server
 bun run server.js
 # Server runs at http://localhost:3000
 ```

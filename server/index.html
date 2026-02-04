@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS Transform API - Interactive Playground</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .intro {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .endpoint-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .endpoint {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .endpoint:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .endpoint h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .endpoint-path {
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 1em;
+            transition: border-color 0.15s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .example {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .hint {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #856404;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>OS Transform API</h1>
+            <p class="subtitle">Convert between British National Grid coordinates, Grid References, and WGS84 Lat/Lng
+            </p>
+        </header>
+
+        <div class="content">
+            <div class="intro">
+                <h2>About this API</h2>
+                <p>This API provides coordinate transformations between OSGB36/British National Grid (EPSG:27700) and
+                    WGS84 (EPSG:4326). It uses proj4js with a seven-parameter Helmert datum transformation, providing
+                    ~95% accuracy across Great Britain.</p>
+                <p style="margin-top: 10px;"><strong>All endpoints support both GET (query parameters) and POST (JSON
+                        body) requests.</strong></p>
+            </div>
+
+            <div class="endpoint-grid">
+                <!-- Endpoint 1: Easting/Northing to Lat/Lng -->
+                <div class="endpoint">
+                    <h3>1. Easting/Northing → Lat/Lng</h3>
+                    <div class="endpoint-path">POST/GET /api/to-latlng</div>
+
+                    <form id="form-to-latlng">
+                        <div class="form-group">
+                            <label>Easting (ea)</label>
+                            <input type="number" name="ea" placeholder="337297" value="337297" required>
+                            <div class="example">Example: 337297</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Northing (no)</label>
+                            <input type="number" name="no" placeholder="503695" value="503695" required>
+                            <div class="example">Example: 503695</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Decimal Places (optional)</label>
+                            <input type="number" name="decimals" placeholder="7" min="0" max="12">
+                            <div class="example">Default: 7</div>
+                        </div>
+                        <button type="submit">Convert</button>
+                    </form>
+                    <div class="result" id="result-to-latlng"></div>
+                </div>
+
+                <!-- Endpoint 2: Lat/Lng to Easting/Northing -->
+                <div class="endpoint">
+                    <h3>2. Lat/Lng → Easting/Northing</h3>
+                    <div class="endpoint-path">POST/GET /api/from-latlng</div>
+
+                    <form id="form-from-latlng">
+                        <div class="form-group">
+                            <label>Latitude (lat)</label>
+                            <input type="number" step="any" name="lat" placeholder="54.42480998" value="54.42480998"
+                                required>
+                            <div class="example">Example: 54.42480998</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Longitude (lng)</label>
+                            <input type="number" step="any" name="lng" placeholder="-2.96793742" value="-2.96793742"
+                                required>
+                            <div class="example">Example: -2.96793742</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Decimal Places (optional)</label>
+                            <input type="number" name="decimals" placeholder="2" min="0" max="12">
+                            <div class="example">Default: 2</div>
+                        </div>
+                        <button type="submit">Convert</button>
+                    </form>
+                    <div class="result" id="result-from-latlng"></div>
+                </div>
+
+                <!-- Endpoint 3: Easting/Northing to Grid Reference -->
+                <div class="endpoint">
+                    <h3>3. Easting/Northing → Grid Reference</h3>
+                    <div class="endpoint-path">POST/GET /api/to-gridref</div>
+
+                    <form id="form-to-gridref">
+                        <div class="form-group">
+                            <label>Easting (ea)</label>
+                            <input type="number" name="ea" placeholder="337297" value="337297" required>
+                            <div class="example">Example: 337297</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Northing (no)</label>
+                            <input type="number" name="no" placeholder="503695" value="503695" required>
+                            <div class="example">Example: 503695</div>
+                        </div>
+                        <button type="submit">Convert</button>
+                    </form>
+                    <div class="result" id="result-to-gridref"></div>
+                </div>
+
+                <!-- Endpoint 4: Grid Reference to Easting/Northing -->
+                <div class="endpoint">
+                    <h3>4. Grid Reference → Easting/Northing</h3>
+                    <div class="endpoint-path">POST/GET /api/from-gridref</div>
+
+                    <form id="form-from-gridref">
+                        <div class="form-group">
+                            <label>Grid Reference (gridref)</label>
+                            <input type="text" name="gridref" placeholder="NY 37297 03695" value="NY 37297 03695"
+                                required>
+                            <div class="example">Example: NY 37297 03695</div>
+                        </div>
+                        <button type="submit">Convert</button>
+                    </form>
+                    <div class="result" id="result-from-gridref"></div>
+                </div>
+
+                <!-- Endpoint 5: Grid Reference to Lat/Lng -->
+                <div class="endpoint">
+                    <h3>5. Grid Reference → Lat/Lng (Direct)</h3>
+                    <div class="endpoint-path">POST/GET /api/gridref-to-latlng</div>
+
+                    <form id="form-gridref-to-latlng">
+                        <div class="form-group">
+                            <label>Grid Reference (gridref)</label>
+                            <input type="text" name="gridref" placeholder="NY 37297 03695" value="NY 37297 03695"
+                                required>
+                            <div class="example">Example: NY 37297 03695</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Decimal Places (optional)</label>
+                            <input type="number" name="decimals" placeholder="7" min="0" max="12">
+                            <div class="example">Default: 7</div>
+                        </div>
+                        <button type="submit">Convert</button>
+                    </form>
+                    <div class="result" id="result-gridref-to-latlng"></div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>OS Transform API v0.5.0 | Powered by Bun & proj4js</p>
+        </footer>
+    </div>
+
+    <script>
+        // Generic form submission handler
+        function setupForm(formId, endpoint, resultId) {
+            const form = document.getElementById(formId);
+            const resultDiv = document.getElementById(resultId);
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                // Get form data
+                const formData = new FormData(form);
+                const data = {};
+                for (const [key, value] of formData.entries()) {
+                    if (value !== '') {
+                        // Try to convert to number if it looks like a number
+                        data[key] = isNaN(value) ? value : Number(value);
+                    }
+                }
+
+                // Show loading state
+                const button = form.querySelector('button');
+                const originalText = button.textContent;
+                button.innerHTML = originalText + ' <span class="loading"></span>';
+                button.disabled = true;
+
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+
+                    // Display result
+                    resultDiv.style.display = 'block';
+                    if (response.ok) {
+                        resultDiv.className = 'result success';
+                        resultDiv.textContent = JSON.stringify(result, null, 2);
+                    } else {
+                        resultDiv.className = 'result error';
+                        resultDiv.textContent = JSON.stringify(result, null, 2);
+                    }
+                } catch (error) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = 'Error: ' + error.message;
+                } finally {
+                    // Reset button
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
+            });
+        }
+
+        // Setup all forms
+        setupForm('form-to-latlng', '/api/to-latlng', 'result-to-latlng');
+        setupForm('form-from-latlng', '/api/from-latlng', 'result-from-latlng');
+        setupForm('form-to-gridref', '/api/to-gridref', 'result-to-gridref');
+        setupForm('form-from-gridref', '/api/from-gridref', 'result-from-gridref');
+        setupForm('form-gridref-to-latlng', '/api/gridref-to-latlng', 'result-gridref-to-latlng');
+    </script>
+</body>
+
+</html>

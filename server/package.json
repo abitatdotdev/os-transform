@@ -20,6 +20,11 @@
   ],
   "license": "OGL-UK-3.0",
   "devDependencies": {
-    "@flydotio/dockerfile": "^0.7.10"
+    "@flydotio/dockerfile": "^0.7.10",
+    "@types/bun": "latest"
+  },
+  "private": true,
+  "peerDependencies": {
+    "typescript": "^5"
   }
 }

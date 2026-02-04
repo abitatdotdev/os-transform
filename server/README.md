@@ -36,10 +36,9 @@ The server will start on `http://localhost:3000` by default.
 ### Environment Variables
 
 - `PORT` - Server port (default: 3000)
-- `HOST` - Server hostname (default: localhost)
 
 ```bash
-PORT=8080 HOST=0.0.0.0 bun run server.js
+PORT=8080 bun run server.js
 ```
 
 ## API Endpoints
