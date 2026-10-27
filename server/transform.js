@@ -189,4 +189,22 @@ export class OSTransform {
 
         return this.toLatLng(coordinates, decimals);
     }
+
+    /**
+     * Return a grid reference from an input latlng (convenience method).
+     * @param {object} coordinates - The latlng to be transformed.
+     */
+    latLngToGridRef(coordinates) {
+        if (!Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lng)) {
+            return {};
+        }
+
+        // Preserve sub-metre precision before truncating to a grid reference.
+        const projected = this.fromLatLng(coordinates, 12);
+        if (!Number.isFinite(projected.ea) || !Number.isFinite(projected.no)) {
+            return {};
+        }
+
+        return this.toGridRef(projected);
+    }
 }

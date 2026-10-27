@@ -203,6 +203,29 @@ Bun.serve({
             }
         }
 
+        if (path === '/api/latlng-to-gridref') {
+            try {
+                const data = await getRequestData(req);
+                const { lat, lng } = data;
+
+                if (lat === undefined || lng === undefined || lat === null || lng === null || lat === '' || lng === '') {
+                    return jsonResponse({
+                        error: 'Missing required parameters: lat (latitude) and lng (longitude)'
+                    }, 400, logInfo);
+                }
+
+                const result = transformer.latLngToGridRef({ lat: Number(lat), lng: Number(lng) });
+
+                if (Object.keys(result).length === 0) {
+                    return jsonResponse({ error: 'Invalid coordinates or out of bounds' }, 400, logInfo);
+                }
+
+                return jsonResponse(result, 200, logInfo);
+            } catch (error) {
+                return jsonResponse({ error: error.message }, 500, logInfo);
+            }
+        }
+
         // Serve HTML playground at root
         if (path === '/') {
             const duration = Date.now() - logInfo.startTime;
@@ -226,7 +249,8 @@ Bun.serve({
                     'POST/GET /api/from-latlng': 'Convert lat/lng to easting + northing (params: lat, lng, decimals?)',
                     'POST/GET /api/to-gridref': 'Convert easting + northing to grid reference (params: ea, no)',
                     'POST/GET /api/from-gridref': 'Convert grid reference to easting + northing (params: gridref)',
-                    'POST/GET /api/gridref-to-latlng': 'Convert grid reference directly to lat/lng (params: gridref, decimals?)'
+                    'POST/GET /api/gridref-to-latlng': 'Convert grid reference directly to lat/lng (params: gridref, decimals?)',
+                    'POST/GET /api/latlng-to-gridref': 'Convert lat/lng directly to grid reference (params: lat, lng)'
                 }
             }, 200, logInfo);
         }

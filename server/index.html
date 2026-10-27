@@ -338,6 +338,29 @@
                     </form>
                     <div class="result" id="result-gridref-to-latlng"></div>
                 </div>
+
+                <!-- Endpoint 6: Lat/Lng to Grid Reference -->
+                <div class="endpoint">
+                    <h3>6. Lat/Lng → Grid Reference (Direct)</h3>
+                    <div class="endpoint-path">POST/GET /api/latlng-to-gridref</div>
+
+                    <form id="form-latlng-to-gridref">
+                        <div class="form-group">
+                            <label for="gridref-lat">Latitude (lat)</label>
+                            <input id="gridref-lat" type="number" step="any" name="lat" placeholder="54.42480998"
+                                value="54.42480998" required>
+                            <div class="example">Example: 54.42480998</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="gridref-lng">Longitude (lng)</label>
+                            <input id="gridref-lng" type="number" step="any" name="lng" placeholder="-2.96793742"
+                                value="-2.96793742" required>
+                            <div class="example">Example: -2.96793742</div>
+                        </div>
+                        <button type="submit">Convert</button>
+                    </form>
+                    <div class="result" id="result-latlng-to-gridref" aria-live="polite"></div>
+                </div>
             </div>
         </div>
 
@@ -410,6 +433,7 @@
         setupForm('form-to-gridref', '/api/to-gridref', 'result-to-gridref');
         setupForm('form-from-gridref', '/api/from-gridref', 'result-from-gridref');
         setupForm('form-gridref-to-latlng', '/api/gridref-to-latlng', 'result-gridref-to-latlng');
+        setupForm('form-latlng-to-gridref', '/api/latlng-to-gridref', 'result-latlng-to-gridref');
     </script>
 </body>
 

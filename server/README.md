@@ -69,7 +69,7 @@ curl -X POST http://localhost:3000/api/to-latlng \
 **Response:**
 ```json
 {
-  "lat": 54.42481,
+  "lat": 54.424815,
   "lng": -2.9679374
 }
 ```
@@ -191,7 +191,40 @@ curl -X POST http://localhost:3000/api/gridref-to-latlng \
 
 This is a convenience endpoint that combines grid reference to easting/northing conversion with coordinate transformation in a single call.
 
-### 6. Health Check
+### 6. Convert Lat/Lng to Grid Reference (Direct)
+
+**Endpoint:** `POST/GET /api/latlng-to-gridref`
+
+**Parameters:**
+- `lat` (number, required) - WGS84 latitude
+- `lng` (number, required) - WGS84 longitude
+
+**Example (GET):**
+```bash
+curl "http://localhost:3000/api/latlng-to-gridref?lat=54.424815&lng=-2.96793"
+```
+
+**Example (POST):**
+```bash
+curl -X POST http://localhost:3000/api/latlng-to-gridref \
+  -H "Content-Type: application/json" \
+  -d '{"lat": 54.424815, "lng": -2.96793}'
+```
+
+**Response:**
+```json
+{
+  "text": "NY 37297 03695",
+  "html": "NY&thinsp;37297&thinsp;03695",
+  "letters": "NY",
+  "eastings": "37297",
+  "northings": "03695"
+}
+```
+
+This convenience endpoint transforms lat/lng to British National Grid coordinates and returns a grid reference at one-metre precision.
+
+### 7. Health Check
 
 **Endpoint:** `GET /` or `GET /health`
 
